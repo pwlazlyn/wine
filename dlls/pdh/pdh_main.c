@@ -35,6 +35,8 @@
 #include "wine/debug.h"
 #include "wine/list.h"
 
+#include "pdh_fake_counters.h"
+
 WINE_DEFAULT_DEBUG_CHANNEL(pdh);
 
 static CRITICAL_SECTION pdh_handle_cs;
@@ -146,9 +148,19 @@ struct source
     LONGLONG        base;                           /* samples per second */
 };
 
+static void CALLBACK collect_processor_queue_length( struct counter *counter )
+{
+    const double value = get_fake_counter(FAKE_COUNTER_QUEUE_LENGTH);
+
+    counter->two.doublevalue = value;
+    counter->status = PDH_CSTATUS_VALID_DATA;
+}
+
 static void CALLBACK collect_processor_time( struct counter *counter )
 {
-    counter->two.largevalue = 500000; /* FIXME */
+    const double value = get_fake_counter(FAKE_COUNTER_CPU_UTIL);
+
+    counter->two.doublevalue = value;
     counter->status = PDH_CSTATUS_VALID_DATA;
 }
 
@@ -162,14 +174,18 @@ static void CALLBACK collect_uptime( struct counter *counter )
     (PERF_SIZE_LARGE | PERF_TYPE_COUNTER | PERF_COUNTER_RATE | PERF_TIMER_100NS | PERF_DELTA_COUNTER | \
      PERF_INVERSE_COUNTER | PERF_DISPLAY_PERCENT)
 
+#define TYPE_PROCESSOR_QUEUE_LENGTH \
+    (PERF_SIZE_LARGE | PERF_TYPE_COUNTER | PERF_COUNTER_VALUE | PERF_INVERSE_COUNTER | PERF_DISPLAY_NO_SUFFIX)
+
 #define TYPE_UPTIME \
     (PERF_SIZE_LARGE | PERF_TYPE_COUNTER | PERF_COUNTER_ELAPSED | PERF_OBJECT_TIMER | PERF_DISPLAY_SECONDS)
 
 /* counter source registry */
 static const struct source counter_sources[] =
 {
-    { 6,   L"\\Processor(_Total)\\% Processor Time", collect_processor_time, TYPE_PROCESSOR_TIME, -5, 10000000 },
-    { 674, L"\\System\\System Up Time",              collect_uptime,         TYPE_UPTIME,         -3, 1000 }
+    { 6,   L"\\Processor(_Total)\\% Processor Time", collect_processor_time,         TYPE_PROCESSOR_TIME,          0, 10000000 },
+    { 7,   L"\\System\\Processor Queue Length",      collect_processor_queue_length, TYPE_PROCESSOR_QUEUE_LENGTH,  0, 10000000 },
+    { 674, L"\\System\\System Up Time",              collect_uptime,                 TYPE_UPTIME,                 -3, 1000 }
 };
 
 static BOOL is_local_machine( const WCHAR *name, DWORD len )

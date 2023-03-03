@@ -4,4 +4,5 @@ IMPORTLIB = pdh
 EXTRADLLFLAGS = -Wb,--prefer-native
 
 C_SRCS = \
-	pdh_main.c
+	pdh_main.c \
+	pdh_fake_counters.c
